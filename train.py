@@ -2,6 +2,7 @@ import os
 import random
 from collections import defaultdict
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from embeding_dataset import CustomDataset
@@ -9,6 +10,7 @@ from model import H14_NSFW_Detector
 
 train_ratio = 0.7
 label_ind_dict = {'drawings': 0, 'hentai': 1, 'neutral': 2, 'porn': 3, 'sexy': 4}
+bad_label_list = ["porn", "hentai"]
 
 
 # trainfile https://drive.google.com/file/d/1yenil0R4GqmTOFQ_GVw__x61ofZ-OBcS/view?usp=sharing 据说没标注
@@ -126,6 +128,56 @@ class ModelTrainer:
             #     log(f"epoch: {epoch}, accuracy: {correct / total}")
             #     test_acc_list.append(correct / total)
             torch.save(self.model, os.path.join(save_dir, f"model_{epoch}.pth"))
+
+    def show_model_dataloader_result(self, model, dataloader):
+        model.eval()
+        label_count_dict = defaultdict(int)
+        label_acc_dict = defaultdict(int)
+        label_error_count_dict = defaultdict(lambda: defaultdict(int))
+        with torch.no_grad():
+            correct = 0
+            total = 0
+            for i, (data, label) in enumerate(dataloader):
+                output = model(data)
+                _, predicted = torch.max(output, 1)
+                total += label.size(0)
+                correct += (predicted == label).sum().item()
+                for p, l in zip(predicted, label):
+                    if p == l:
+                        label_acc_dict[int(l)] += 1
+                    label_count_dict[int(l)] += 1
+
+        print(f"accuracy: {correct / total}")
+
+        result = []
+        ind_label_dict = {v: k for k, v in label_ind_dict.items()}
+        for label, ind in label_ind_dict.items():
+            amount = label_count_dict[ind]
+            acc = label_acc_dict[ind]
+            acc_ratio = f"{round(acc / amount * 100, 1)}%"
+            new_error_count_dict = {}
+            for k, v in label_error_count_dict[ind].items():
+                new_error_count_dict[ind_label_dict[k]] = v
+
+            good_amount = 0
+            bad_amount = 0
+            if label in bad_label_list:
+                bad_amount = acc
+            else:
+                good_amount = acc
+            for k, v in label_error_count_dict[ind].items():
+                if ind_label_dict[k] in bad_label_list:
+                    bad_amount += v
+                else:
+                    good_amount += v
+
+            result.append(
+                dict(label=label, amount=amount, acc=acc, aac_ratio=acc_ratio,
+                     error_count_dict=new_error_count_dict, good_ratio=round(good_amount / amount * 100, 1),
+                     bad_ratio=round(bad_amount / amount * 100, 1))
+            )
+
+        print(pd.DataFrame(result))
 
 
 self = ModelTrainer("./train", "./test/nsfw_testset/", 768)
