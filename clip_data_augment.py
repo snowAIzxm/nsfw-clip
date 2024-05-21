@@ -54,6 +54,6 @@ class DataChecker:
                 norm_features = self.normalized(image_features.cpu().numpy())
                 nsfw_result = self.nsfw_model(torch.tensor(norm_features.astype(np.float32)).cuda())
                 soft_result = torch.argmax(nsfw_result, dim=1).cpu().numpy()
-            for file_name, nsfw, feature in zip(batch_file_list, soft_result, norm_features)
+            for file_name, nsfw, feature in zip(batch_file_list, soft_result, norm_features):
                 result.append(ImageResult(file_name, feature, nsfw))
         return result, error_load_file_list
