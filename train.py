@@ -1,11 +1,9 @@
 import os
 import random
 from collections import defaultdict
-
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-
 from embeding_dataset import CustomDataset
 from model import H14_NSFW_Detector
 
